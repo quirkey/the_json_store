@@ -2,6 +2,7 @@
   
   var app = $.sammy(function() {
     this.element_selector = '#main';    
+    this.use(Sammy.Template);
 
     this.get('#/', function(context) {
       $.ajax({

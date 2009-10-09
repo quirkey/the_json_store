@@ -4,7 +4,15 @@
     this.element_selector = '#main';    
 
     this.get('#/', function(context) {
-      context.log('Yo yo yo');
+      $.ajax({
+        url: 'data/items.js', 
+        dataType: 'json',
+        success: function(items) {
+          $.each(items, function(i, item) {
+            context.log(item.title, '-', item.artist);
+          });
+        }
+      });
     });
     
   });

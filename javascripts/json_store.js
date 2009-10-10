@@ -18,8 +18,9 @@
     });
 
     this.get('#/', function(context) {
+      context.app.swap('');
       $.each(context.items, function(i, item) {
-        context.partial('templates/item.template', {item: item}, function(rendered) {
+        context.partial('templates/item.template', {id: i, item: item}, function(rendered) {
           context.$element().append(rendered);
         });
       });

@@ -1,8 +1,10 @@
 <div class="item-detail">
   <div class="item-image"><img src="<%= item.large_image %>" alt="<%= item.title %>" /></div>
-  <div class="item-artist"><%= item.artist %></div>
-  <div class="item-title"><%= item.title %></div>
-  <div class="item-price">$<%= item.price %></div>
-  <div class="item-link"><a href="<%= item.url %>">Buy this item on Amazon</a></div>
-  <div class="back-link"><a href="#/">&laquo; Back to Items</a></div>
+  <div class="item-info">
+    <div class="item-artist"><%= item.artist %></div>
+    <div class="item-title"><%= item.title %></div>
+    <div class="item-price">$<%= item.price %></div>
+    <div class="item-link"><a href="<%= item.url %>">Buy this item on Amazon</a></div>
+    <div class="back-link"><a href="#/">&laquo; Back to Items</a></div>
+  </div>
 </div>

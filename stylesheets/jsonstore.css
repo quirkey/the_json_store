@@ -20,6 +20,10 @@ body {
   margin: 0px;
 }
 
+img {
+  border: 0;
+}
+
 .item {
   float:left;
   width: 250px;
@@ -32,4 +36,10 @@ body {
 .item-artist {
   font-weight: bold;
   font-size: 14px;
+}
+.item-detail .item-image {
+  float:left;
+}
+.item-detail .item-info {
+  padding: 100px 10px 0px 10px;
 }

@@ -1,0 +1,6 @@
+<div class="item">
+  <div class="item-image"><img src="<%= item.image %>" alt="<%= item.title %>" /></div>
+  <div class="item-artist"><%= item.artist %></div>
+  <div class="item-title"><%= item.title %></div>
+  <div class="item-price">$<%= item.price %></div>
+</div>

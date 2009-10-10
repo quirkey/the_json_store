@@ -1,0 +1,35 @@
+/******************************************************
+ *  json store                 *
+\*****************************************************/
+body {
+  font-family: "Lucida Grande", Lucida, Helvetica, Arial, sans-serif;
+  background: #FFF;
+  color: #333;
+  margin: 0px;
+  padding: 0px;
+}
+
+#header {
+  background: #C97E41;
+  margin: 0px;
+  padding: 20px;
+}
+#header h1 {
+  font-family: Inconsolata, Monaco, Courier, mono;
+  color: #FFF;
+  margin: 0px;
+}
+
+.item {
+  float:left;
+  width: 250px;
+  text-align:center;
+  font-size: 12px;
+}
+.item-title {
+  font-weight: bold;
+}
+.item-artist {
+  font-weight: bold;
+  font-size: 14px;
+}

@@ -26,7 +26,9 @@
     });
     
     this.get('#/item/:id', function(context) {
-      
+      this.item = this.items[this.params['id']];
+      if (!this.item) { return this.notFound(); }
+      this.partial('templates/item_detail.template');
     });
     
   });

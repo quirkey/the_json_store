@@ -32,6 +32,10 @@
       this.partial('templates/item_detail.template');
     });
     
+    this.post('#/cart', function(context) {
+      
+    });
+    
   });
   
   $(function() {

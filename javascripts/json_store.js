@@ -31,9 +31,19 @@
       if (!this.item) { return this.notFound(); }
       this.partial('templates/item_detail.template');
     });
+
+    // initialize the cart
+    var cart = {};
     
     this.post('#/cart', function(context) {
-      this.log("I'm in a post route. Add me to your cart");
+      var item_id = this.params['item_id'];
+      if (!cart[item_id]) {
+        // this item is not yet in our cart
+        // initialize its quantity with 0
+        cart[item_id] = 0;
+      }
+      cart[item_id] += parseInt(this.params['quantity']);
+      this.log("The current cart: ", cart);
     });
     
   });

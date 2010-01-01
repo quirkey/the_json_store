@@ -8,7 +8,7 @@
   
   Sammy = {};
   
-  Sammy.VERSION = '0.3.0';
+  Sammy.VERSION = '0.4.0';
   
   // Add to the global logger pool. Takes a function that accepts an 
   // unknown number of arguments and should print them or send them somewhere
@@ -151,7 +151,98 @@
       });
       return "Sammy.Object: {" + s.join(',') + "}"; 
     }
-  });  
+  });
+  
+  Sammy.HashLocationProxy = function(app, run_interval_every) {
+    this.app = app;
+    
+    // check for native hash support
+    if ('onhashchange' in window) {
+      Sammy.log('native hash change exists, using');
+      this.is_native = true;
+    } else {
+      Sammy.log('no native hash change, falling back to polling');
+      this.is_native = false;
+      this._startPolling(run_interval_every);
+    }
+  };
+  
+  Sammy.HashLocationProxy.prototype = {
+    bind: function() {
+      var app = this.app;
+      $(window).bind('hashchange.' + this.app.eventNamespace(), function() {
+        app.trigger('location-changed');
+      });
+    },
+    
+    unbind: function() {
+      $(window).die('hashchange.' + this.app.eventNamespace());
+    },
+    
+    getLocation: function() {
+     // Bypass the `window.location.hash` attribute.  If a question mark
+      // appears in the hash IE6 will strip it and all of the following
+      // characters from `window.location.hash`.
+      var matches = window.location.toString().match(/^[^#]*(#.+)$/);
+      return matches ? matches[1] : '';
+    },
+    
+    setLocation: function(new_location) {
+      return window.location = new_location;
+    },
+    
+    _startPolling: function(every) {
+      // set up interval
+      var proxy = this;
+      if (!Sammy.HashLocationProxy._interval) {
+        if (!every) every = 10;
+        var hashCheck = function() {
+          current_location = proxy.getLocation();
+          // Sammy.log('getLocation', current_location);
+          if (!Sammy.HashLocationProxy._last_location || 
+            current_location != Sammy.HashLocationProxy._last_location) {
+            setTimeout(function() {
+              $(window).trigger('hashchange');
+            }, 1);
+          }
+          Sammy.HashLocationProxy._last_location = current_location;
+        }
+        hashCheck();
+        Sammy.HashLocationProxy._interval = setInterval(hashCheck, every);
+        $(window).bind('unload', function() {
+          clearInterval(Sammy.HashLocationProxy._interval);
+        });
+      }
+    }
+  };
+  
+  Sammy.DataLocationProxy = function(app, data_name) {
+    this.app = app;
+    this.data_name = data_name || 'sammy-location';
+  };
+  
+  Sammy.DataLocationProxy.prototype = {
+    bind: function() {
+      var proxy = this;
+      this.app.$element().bind('setData', function(e, key) {
+        if (key == proxy.data_name) {
+          proxy.app.trigger('location-changed');
+        }
+      });
+    },
+    
+    unbind: function() {
+      this.app.$element().die('setData');
+    },
+    
+    getLocation: function() {
+      return this.app.$element().data(this.data_name);
+    },
+    
+    setLocation: function(new_location) {
+      return this.app.$element().data(this.data_name, new_location);
+    }
+  };
   
   // Sammy.Application is the Base prototype for defining 'applications'.
   // An 'application' is a collection of 'routes' and bound events that is
@@ -165,10 +256,17 @@
     this.namespace         = this.uuid();
     this.context_prototype = function() { Sammy.EventContext.apply(this, arguments) };
     this.context_prototype.prototype = new Sammy.EventContext();
+
     this.each(this.ROUTE_VERBS, function(i, verb) {
       this._defineRouteShortcut(verb);
     });
-    app_function.apply(this, [this]);
+    if ($.isFunction(app_function)) {
+      app_function.apply(this, [this]);
+    }
+    // set the location proxy if not defined to the default (HashLocationProxy)
+    if (!this.location_proxy) {
+      this.location_proxy = new Sammy.HashLocationProxy(app, this.run_interval_every);
+    }
     if (this.debug) {
       this.bindToAllEvents(function(e, data) {
         app.log(app.toString(), e.cleaned_type, data || {});
@@ -253,8 +351,18 @@
       // flatten the arguments
       var args = $.makeArray(arguments);
       var plugin = args.shift();
-      args.unshift(this);
-      plugin.apply(this, args);
+      try {
+        args.unshift(this);
+        plugin.apply(this, args);
+      } catch(e) {
+        if (typeof plugin == 'undefined') {
+          throw("Error: called use() but plugin is not defined");
+        } else if (!$.isFunction(plugin)) {
+          throw("Error: called use() but '" + plugin.toString() + "' is not a function");
+        } else {
+          throw(e);
+        }
+      }
     },
     
     // <tt>route()</tt> is the main method for defining routes within an application.
@@ -271,10 +379,17 @@
     route: function(verb, path, callback) {
       // turn path into regex
       // create a simple object and add the route to it
-      var app = this;
-      var param_names = [];
+      var app = this, 
+          param_names = [],
+          r;
       // if path is a string turn it into a regex
       if (path.constructor == String) {
+        
+        // Needs to be explicitly set because IE will maintain the index unless NULL is returned,
+        // which means that with two consecutive routes that contain params, the second set of params will not be found and end up in splat instead of params
+        // https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/RegExp/lastIndex        
+        PATH_NAME_MATCHER.lastIndex = 0;
+        
         // find the names
         while ((path_match = PATH_NAME_MATCHER.exec(path)) != null) {
           param_names.push(path_match[1]);
@@ -282,7 +397,7 @@
         // replace with the path replacement
         path = new RegExp(path.replace(PATH_NAME_MATCHER, PATH_REPLACER) + "$");
       }
-      var r = {verb: verb, path: path, callback: callback, param_names: param_names};
+      r = {verb: verb, path: path, callback: callback, param_names: param_names};
       // add route to routes array
       if (typeof this.routes[verb] == 'undefined' || this.routes[verb].length == 0)  {
         // add to the front of an empty array
@@ -352,7 +467,7 @@
     //              If no context is supplied a the context is a new <tt>Sammy.EventContext</tt>
     //
     trigger: function(name, data) {
-      return this.$element().triggerHandler([name, this.eventNamespace()].join('.'), [data]);
+      return this.$element().trigger([name, this.eventNamespace()].join('.'), [data]);
     },
     
     // Reruns the current route
@@ -411,6 +526,35 @@
       $.extend(this.context_prototype.prototype, extensions);
     },
     
+    // Helper extends the event context just like <tt>helpers()</tt> but does it
+    // a single method at a time. This is especially useful for dynamically named 
+    // helpers
+    // 
+    // === Example
+    //     
+    //     // Trivial example that adds 3 helper methods to the context dynamically
+    //     var app = $.sammy(function(app) {
+    //       
+    //       $.each([1,2,3], function(i, num) {
+    //         app.helper('helper' + num, function() {
+    //           this.log("I'm helper number " + num);
+    //         }); 
+    //       });
+    //       
+    //       this.get('#/', function() {
+    //         this.helper2(); //=> I'm helper number 2
+    //       });
+    //     });
+    //     
+    // === Arguments
+    // 
+    // +name+:: The name of the method
+    // +method+:: The function to be added to the prototype at <tt>name</tt>
+    //
+    helper: function(name, method) {
+      this.context_prototype.prototype[name] = method;
+    },
+    
     // Actually starts the application's lifecycle. <tt>run()</tt> should be invoked
     // within a document.ready block to ensure the DOM exists before binding events, etc.
     //
@@ -447,10 +591,10 @@
       } 
       // check url
       this._checkLocation();
-      // set interval for url check
-      this._interval = setInterval(function () {
-        app._checkLocation.apply(app);
-      }, this.run_interval_every);
+      this.location_proxy.bind();
+      this.bind('location-changed', function() {
+        app._checkLocation();
+      });
       
       // bind re-binding to after route
       this.bind('changed', function() {
@@ -479,7 +623,7 @@
       var app = this;
       this.trigger('unload');
       // clear interval
-      clearInterval(this._interval);
+      this.location_proxy.unbind();
       // unbind form submits
       this.$element().find('form')
         .unbind('submit')
@@ -603,15 +747,7 @@
     // Override this and <tt>setLocation()</tt> to detach the app from the 
     // window.location object.
     getLocation: function() {
-      // Bypass the `window.location.hash` attribute.  If a question mark
-      // appears in the hash IE6 will strip it and all of the following
-      // characters from `window.location.hash`.
-      var matches = window.location.toString().match(/^[^#]*(#.+)$/);
-      if (matches) {
-          return matches[1];
-      } else {
-          return '';
-      }
+      return this.location_proxy.getLocation()
     },
     
     // The default behavior is to set the current window's location.
@@ -623,7 +759,7 @@
     // +new_location+:: A new location string (e.g. '#/')
     //
     setLocation: function(new_location) {
-      window.location = new_location;
+      return this.location_proxy.setLocation(new_location);
     },
     
     // Swaps the content of <tt>$element()</tt> with <tt>content</tt>
@@ -692,19 +828,10 @@
       this.trigger('check-form-submission', {form: form});
       $form = $(form);
       path  = $form.attr('action');
-      verb  = $form.attr('method').toString().toLowerCase();
-      params = {'$form': $form};
-      $.each($form.serializeArray(), function(i, field) {
-        if (params[field.name]) {
-          if ($.isArray(params[field.name])) {
-            params[field.name].push(field.value);
-          } else {
-            params[field.name] = [params[field.name], field.value];
-          }
-        } else {
-          params[field.name] = field.value;
-        }
-      });
+      verb  = $.trim($form.attr('method').toString().toLowerCase());
+      if (!verb || verb == '') { verb = 'get'; }
+      params = $.extend({}, this._parseFormParams($form), {'$form': $form});
+            
       try { // catch 404s
         returned = this.runRoute(verb, path, params);
       } catch(e) {
@@ -717,6 +844,22 @@
       return (typeof returned == 'undefined') ? false : returned;
     },
     
+    _parseFormParams: function($form) {
+      var params = {};
+      $.each($form.serializeArray(), function(i, field) {
+        if (params[field.name]) {
+          if ($.isArray(params[field.name])) {
+            params[field.name].push(field.value);
+          } else {
+            params[field.name] = [params[field.name], field.value];
+          }
+        } else {
+          params[field.name] = field.value;
+        }
+      });
+      return params;
+    },
+    
     _parseQueryString: function(path) {
       var query = {}, parts, pairs, pair, i;
 
@@ -724,8 +867,8 @@
       if (parts) {
         pairs = parts[1].split('&');
         for (i = 0; i < pairs.length; i += 1) {
-            pair = pairs[i].split('=');
-            query[pair[0]] = pair[1];
+          pair = pairs[i].split('=');
+          query[pair[0]] = decodeURIComponent(pair[1]);
         }
       }
 
@@ -741,7 +884,7 @@
     }
 
   });
-
+  
   // <tt>Sammy.EventContext</tt> objects are created every time a route is run or a 
   // bound event is triggered. The callbacks for these events are evaluated within a <tt>Sammy.EventContext</tt>
   // This within these callbacks the special methods of <tt>EventContext</tt> are available.
@@ -863,7 +1006,8 @@
     //      redirect('#', 'other', 'route');
     //
     redirect: function() {
-      var to, args = $.makeArray(arguments);
+      var to, args = $.makeArray(arguments), 
+          current_location = this.app.getLocation();
       if (args.length > 1) {
         args.unshift('/');
         to = this.join.apply(this, args);
@@ -872,7 +1016,10 @@
       }
       this.trigger('redirect', {to: to});
       this.app.last_location = this.path;
-      return this.app.setLocation(to);
+      this.app.setLocation(to);
+      if (current_location == to) {
+        this.app.trigger('location-changed');
+      }
     },
     
     // Triggers events on <tt>app</tt> within the current context.

@@ -3,6 +3,7 @@
   var app = $.sammy(function() {
     this.element_selector = '#main';    
     this.use(Sammy.Template);
+    this.use(Sammy.Session);
 
     this.before(function() {
       // load the items

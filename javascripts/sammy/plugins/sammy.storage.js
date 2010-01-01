@@ -232,7 +232,7 @@
   };
   $.extend(Sammy.Store.LocalStorage.prototype, {
     isAvailable: function() {
-      return ('localStorage' in window);
+      return ('localStorage' in window) && window.location.protocol != 'file:';
     },
     exists: function(key) {
       return (this.get(key) != null);
@@ -413,7 +413,7 @@
     
     this.helpers({
       store: function() {
-        return this.app.apply(this.app, arguments);
+        return this.app.store.apply(this.app, arguments);
       }
     });
   };

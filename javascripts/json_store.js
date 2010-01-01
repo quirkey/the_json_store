@@ -33,17 +33,20 @@
       this.partial('templates/item_detail.template');
     });
 
-    // initialize the cart
-    var cart = {};
-    
     this.post('#/cart', function(context) {
       var item_id = this.params['item_id'];
+      // fetch the current cart
+      var cart  = this.session('cart', function() {
+        return {};
+      });
       if (!cart[item_id]) {
         // this item is not yet in our cart
         // initialize its quantity with 0
         cart[item_id] = 0;
       }
       cart[item_id] += parseInt(this.params['quantity']);
+      // store the cart
+      this.session('cart', cart);
       this.log("The current cart: ", cart);
     });
     

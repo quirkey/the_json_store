@@ -19,7 +19,17 @@ body {
   color: #FFF;
   margin: 0px;
 }
-
+#header .cart-info {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  text-align: right;
+  padding: 10px;
+  background: #714625;
+  color: #FFF;
+  font-size: 12px;
+  font-weight: bold;
+}
 img {
   border: 0;
 }

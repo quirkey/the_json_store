@@ -33,7 +33,7 @@
     });
     
     this.post('#/cart', function(context) {
-      
+      this.log("I'm in a post route. Add me to your cart");
     });
     
   });

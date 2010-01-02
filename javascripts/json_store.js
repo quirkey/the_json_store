@@ -50,6 +50,10 @@
       this.log("The current cart: ", cart);
     });
     
+    this.bind('update-cart', function() {
+      
+    });
+    
   });
   
   $(function() {

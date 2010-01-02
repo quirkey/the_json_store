@@ -51,7 +51,14 @@
     });
     
     this.bind('update-cart', function() {
-      
+      var sum = 0;
+      $.each(this.session('cart') || {}, function(id, quantity) {
+        sum += quantity;
+      });
+      $('.cart-info')
+          .find('.cart-items').text(sum).end()
+          .animate({paddingTop: '30px'})
+          .animate({paddingTop: '10px'});
     });
     
   });

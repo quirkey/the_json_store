@@ -61,6 +61,11 @@
           .animate({paddingTop: '10px'});
     });
     
+    this.bind('run', function() {
+      // initialize the cart display
+      this.trigger('update-cart');
+    });
+    
   });
   
   $(function() {

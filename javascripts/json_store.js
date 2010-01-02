@@ -47,7 +47,7 @@
       cart[item_id] += parseInt(this.params['quantity']);
       // store the cart
       this.session('cart', cart);
-      this.log("The current cart: ", cart);
+      this.trigger('update-cart');
     });
     
     this.bind('update-cart', function() {

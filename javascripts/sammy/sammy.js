@@ -1,14 +1,14 @@
 ;(function($) {
   
-  var PATH_REPLACER = "([^\/]+)";
-  var PATH_NAME_MATCHER = /:([\w\d]+)/g;
-  var QUERY_STRING_MATCHER = /\?([^#]*)$/;
-  
-  var loggers = [];
+  var PATH_REPLACER = "([^\/]+)",
+      PATH_NAME_MATCHER = /:([\w\d]+)/g,
+      QUERY_STRING_MATCHER = /\?([^#]*)$/,
+      _decode = decodeURIComponent,
+      loggers = [];
   
   Sammy = {};
   
-  Sammy.VERSION = '0.4.0';
+  Sammy.VERSION = '0.4.1';
   
   // Add to the global logger pool. Takes a function that accepts an 
   // unknown number of arguments and should print them or send them somewhere
@@ -29,11 +29,17 @@
 	};
 	
 	if (typeof window.console != 'undefined') {
-    Sammy.addLogger(function() {
-      window.console.log.apply(window.console, arguments);
-    });
+	  if ($.isFunction(console.log.apply)) {
+      Sammy.addLogger(function() {
+        window.console.log.apply(console, arguments);
+      });
+    } else {
+      Sammy.addLogger(function() {
+        window.console.log(arguments);
+      });
+    }
   } else if (typeof console != 'undefined') {
-    Sammy.addLogger.push(function() {
+    Sammy.addLogger(function() {
       console.log.apply(console, arguments);
     });
   }
@@ -153,6 +159,18 @@
     }
   });
   
+  // The HashLocationProxy is the default location proxy for all Sammy applications.
+  // A location proxy is a prototype that conforms to a simple interface. The purpose
+  // of a location proxy is to notify the Sammy.Application its bound to when the location
+  // or 'external state' changes. The HashLocationProxy considers the state to be
+  // changed when the 'hash' (window.location.hash / '#') changes. It does this in two
+  // different ways depending on what browser you are using. The newest browsers 
+  // (IE, Safari > 4, FF >= 3.6) support a 'onhashchange' DOM event, thats fired whenever
+  // the location.hash changes. In this situation the HashLocationProxy just binds
+  // to this event and delegates it to the application. In the case of older browsers
+  // a poller is set up to track changes to the hash. Unlike Sammy 0.3 or earlier,
+  // the HashLocationProxy allows the poller to be a global object, eliminating the
+  // need for multiple pollers even when thier are multiple apps on the page.
   Sammy.HashLocationProxy = function(app, run_interval_every) {
     this.app = app;
     
@@ -168,17 +186,18 @@
   };
   
   Sammy.HashLocationProxy.prototype = {
+    // bind the proxy events to the current app.
     bind: function() {
       var app = this.app;
       $(window).bind('hashchange.' + this.app.eventNamespace(), function() {
         app.trigger('location-changed');
       });
     },
-    
+    // unbind the proxy events from the current app
     unbind: function() {
       $(window).die('hashchange.' + this.app.eventNamespace());
     },
-    
+    // get the current location from the hash.
     getLocation: function() {
      // Bypass the `window.location.hash` attribute.  If a question mark
       // appears in the hash IE6 will strip it and all of the following
@@ -186,7 +205,7 @@
       var matches = window.location.toString().match(/^[^#]*(#.+)$/);
       return matches ? matches[1] : '';
     },
-    
+    // set the current location to <tt>new_location</tt>
     setLocation: function(new_location) {
       return window.location = new_location;
     },
@@ -216,6 +235,12 @@
     }
   };
   
+  // The DataLocationProxy is an optional location proxy prototype. As opposed to
+  // the <tt>HashLocationProxy</tt> it gets its location from a jQuery.data attribute
+  // tied to the application's element. You can set the name of the attribute by
+  // passing a string as the second argument to the constructor. The default attribute
+  // name is 'sammy-location'. To read more about location proxies, check out the 
+  // documentation for <tt>Sammy.HashLocationProxy</tt>
   Sammy.DataLocationProxy = function(app, data_name) {
     this.app = app;
     this.data_name = data_name || 'sammy-location';
@@ -303,6 +328,12 @@
     
     // The time in milliseconds that the URL is queried for changes
     run_interval_every: 50, 
+    
+    // The location proxy for the current app. By default this is set to a new
+    // <tt>Sammy.HashLocationProxy</tt> on initialization. However, you can set
+    // the location_proxy inside you're app function to give youre app a custom
+    // location mechanism
+    location_proxy: null,
         
     // //=> Sammy.Application: body
     toString: function() {
@@ -716,11 +747,11 @@
             // if theres a matching param name
             if (route.param_names[i]) {
               // set the name to the match
-              params[route.param_names[i]] = param;
+              params[route.param_names[i]] = _decode(param);
             } else {
               // initialize 'splat'
               if (!params['splat']) params['splat'] = [];
-              params['splat'].push(param);
+              params['splat'].push(_decode(param));
             }
           });
         }
@@ -743,16 +774,14 @@
       }
     },
     
-    // The default behavior is to return the current window's location hash.
-    // Override this and <tt>setLocation()</tt> to detach the app from the 
-    // window.location object.
+    // Delegates to the <tt>location_proxy</tt> to get the current location.
+    // See <tt>Sammy.HashLocationProxy</tt> for more info on location proxies.
     getLocation: function() {
       return this.location_proxy.getLocation()
     },
     
-    // The default behavior is to set the current window's location.
-    // Override this and <tt>getLocation()</tt> to detach the app from the 
-    // window.location object.
+    // Delegates to the <tt>location_proxy</tt> to set the current location.
+    // See <tt>Sammy.HashLocationProxy</tt> for more info on location proxies.
     //
     // === Arguments
     // 
@@ -868,7 +897,7 @@
         pairs = parts[1].split('&');
         for (i = 0; i < pairs.length; i += 1) {
           pair = pairs[i].split('=');
-          query[pair[0]] = decodeURIComponent(pair[1]);
+          query[pair[0]] = _decode(pair[1]);
         }
       }
 

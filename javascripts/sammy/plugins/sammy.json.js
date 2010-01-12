@@ -2,8 +2,8 @@
 
   // json2.js - only included if native json does not exist
   // http://www.json.org/js.html
-  if (!JSON) {
-      JSON = {};
+  if (!window.JSON) {
+    window.JSON = {};
   }
   (function () {
 
@@ -324,7 +324,7 @@
   Sammy = Sammy || {};
   
   // Sammy.JSON is a simple wrapper around Douglas Crockford's ever-useful json2.js 
-  // [http://www.json.org/js.html] Sammy.JSON includes the top level JSON object if 
+  // (http://www.json.org/js.html]) Sammy.JSON includes the top level JSON object if 
   // it doesn't already exist (a.k.a. does not override the native implementation that 
   // some browsers include). It also adds a <tt>json()</tt> helper to a Sammy app when 
   // included.

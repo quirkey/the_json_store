@@ -49,8 +49,15 @@
       $.each(this.session('cart') || {}, function(id, quantity) {
         sum += quantity;
       });
+      
+      // function to decide whether use "items" or "item"
+      var plural = function(num) {
+        return ( num > 1 ) ? 'items' : 'item';
+      };
+      
       $('.cart-info')
           .find('.cart-items').text(sum).end()
+          .find('.cart-plural').text( plural(sum) ).end()
           .animate({paddingTop: '30px'})
           .animate({paddingTop: '10px'});
     });
